@@ -63,11 +63,13 @@ def main_loop(conn):
                     cur.execute(SQL, (host_id, 0.0, 1, u'Connection Timeout'))
                 except socket.gaierror as err:
                     # 名前解決エラー
-                    msg = '{0}({1})'.format(err[1], err[0])
+                    args = err.args
+                    msg = '{0}({1})'.format(args[1], args[0])
                     cur.execute(SQL, (host_id, 0.0, 1, msg))
                 except OSError as err:
                     # 上記以外のエラー
-                    msg = '{0}({1})'.format(err[1], err[0])
+                    args = err.args
+                    msg = '{0}({1})'.format(args[1], args[0])
                     cur.execute(SQL, (host_id, 0.0, 1, msg))
         conn.commit()
         # 何秒待つか計算
