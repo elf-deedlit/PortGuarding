@@ -47,30 +47,43 @@ def get_hostid(cur, name, port):
 def main_loop(conn):
     '''メインループ'''
     SQL = 'INSERT INTO record (id, response, guarding, msg) VALUES (?, ?, ?, ?)'
+    prev_status = {}
     while True:
         cur = conn.cursor()
         for host, port in GUARD_LIST:
             host_id = get_hostid(cur, host, port)
+            if host_id not in prev_status:
+                prev_status[host_id] = 0
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as skt:
+                msg = None
+                status = 0
                 try:
                     stime = time.time()
                     skt.connect((host, port))
                     laps = time.time() - stime
                     cur.execute(SQL, (host_id, laps, 0, u''))
                     skt.shutdown(socket.SHUT_RDWR)
+                    msg = u'Status OK'
                 except socket.timeout:
                     # タイムアウトを記録
-                    cur.execute(SQL, (host_id, 0.0, 1, u'Connection Timeout'))
+                    msg = u'Connection Timeout'
+                    status = 1
+                    cur.execute(SQL, (host_id, 0.0, 1, msg))
                 except socket.gaierror as err:
                     # 名前解決エラー
                     args = err.args
                     msg = '{0}({1})'.format(args[1], args[0])
-                    cur.execute(SQL, (host_id, 0.0, 1, msg))
+                    status = 2
+                    cur.execute(SQL, (host_id, 0.0, 2, msg))
                 except OSError as err:
                     # 上記以外のエラー
                     args = err.args
                     msg = '{0}({1})'.format(args[1], args[0])
-                    cur.execute(SQL, (host_id, 0.0, 1, msg))
+                    status = 3
+                    cur.execute(SQL, (host_id, 0.0, 3, msg))
+                if status != prev_status[host_id]:
+                    print('{0}({1}): {2}'.format(host, port, msg))
+                    prev_status[host_id] = status
         conn.commit()
         # 何秒待つか計算
         nowtime = datetime.datetime.now()
