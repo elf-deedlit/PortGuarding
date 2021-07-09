@@ -82,7 +82,8 @@ def main_loop(conn):
                     status = 3
                     cur.execute(SQL, (host_id, 0.0, 3, msg))
                 if status != prev_status[host_id]:
-                    print('{0}({1}): {2}'.format(host, port, msg))
+                    ntime = datetime.datetime.now()
+                    print('[{3:%Y/%m/%d %H:%M:%S}] {0}({1}): {2}'.format(host, port, msg, ntime))
                     prev_status[host_id] = status
         conn.commit()
         # 何秒待つか計算
