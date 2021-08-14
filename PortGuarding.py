@@ -4,8 +4,6 @@ import datetime
 import os
 import sqlite3
 import socket
-from sqlite3.dbapi2 import Error
-from threading import Thread
 import time
 import concurrent.futures
 import queue
@@ -36,7 +34,15 @@ def create_database(conn: sqlite3.connect) -> None:
 
     conn.commit()
 
-def get_hostid(cur, name, port):
+def delete_olddata(conn: sqlite3.connect) -> None:
+    '''古いデータを削除する'''
+    sql = '''DELETE FROM record
+    WHERE dtime < datetime('now', 'localtime', ?)'''
+    cur = conn.cursor()
+    cur.execute(sql, (f'-{LEFT_DAYS} days', ))
+    conn.commit()
+
+def get_hostid(cur: sqlite3.Cursor, name: str, port: int) -> int:
     '''ホスト名とポートを記録'''
     sql = 'SELECT id FROM hosts WHERE name=? AND port=?'
     cur.execute(sql, (name, port))
@@ -58,10 +64,6 @@ class ThreadVariable(object):
         self.db_queue = queue.LifoQueue()
     
     def __delattr__(self, name: str) -> None:
-        if self.conn:
-            self.conn.commit()
-            self.conn.close()
-            self.conn = None
         return super().__delattr__(name)
 
     def is_quit(self) -> bool:
@@ -85,7 +87,6 @@ def msg_loop(gbl: ThreadVariable) -> None:
             time.sleep(1)
             continue
         print(gbl.msg_queue.get())
-    # print('msg loop quit')
 
 def db_loop(gbl: ThreadVariable) -> None:
     '''db登録用ループ'''
@@ -105,7 +106,6 @@ def db_loop(gbl: ThreadVariable) -> None:
                 conn.commit()
             except sqlite3.Error as err:
                 print(err)
-    # print('db loop quit')
 
 def main_loop(host: str, port: int, host_id: int, gbl: ThreadVariable) -> None:
     '''メインループ'''
@@ -154,9 +154,8 @@ def main_loop(host: str, port: int, host_id: int, gbl: ThreadVariable) -> None:
             while sec > 0 and (not gbl.is_quit()):
                 time.sleep(0.1)
                 sec -= 1
-    # print('{0}({1}): guarding loop quit'.format(host, port))
 
-def main():
+def main() -> int:
     '''Main Function'''
     with concurrent.futures.ThreadPoolExecutor() as executor:
         gbl = ThreadVariable()
@@ -165,6 +164,7 @@ def main():
         futures.append(executor.submit(db_loop, gbl))
         with sqlite3.connect(DBFILE) as conn:
             create_database(conn)
+            delete_olddata(conn)
             cur = conn.cursor()
             for host, port in GUARD_LIST:
                 host_id = get_hostid(cur, host, port)
@@ -173,7 +173,6 @@ def main():
             conn.commit()
         while not gbl.is_quit():
             try:
-                #print("wait:{0:%Y/%m/%d %H:%M:%S}".format(datetime.datetime.now()))
                 time.sleep(1)
             except KeyboardInterrupt:
                 # どうもプロセスを終了させる方法はないっぽい？
@@ -184,9 +183,10 @@ def main():
                 # https://qiita.com/Yukimura127/items/2380931ac5efcd635d05
                 # for process in executor._processes.values():
                 #     process.kill()
-
+                print(u'stop processes...', end='')
                 gbl.set_quit()
-    # print(u'exit')
+    print(u'exit system.')
+    return 0
 
 if __name__ == '__main__':
     main()

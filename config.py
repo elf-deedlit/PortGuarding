@@ -11,3 +11,5 @@ GUARD_LIST = (
 RECORD_FILENAME = 'port_guarding.sqlite'
 
 CONNECT_TIMEOUT = 3.0
+
+LEFT_DAYS = 30
