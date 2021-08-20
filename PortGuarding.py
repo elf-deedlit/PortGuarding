@@ -183,7 +183,7 @@ def main() -> int:
                 # https://qiita.com/Yukimura127/items/2380931ac5efcd635d05
                 # for process in executor._processes.values():
                 #     process.kill()
-                print(u'stop processes...', end='')
+                print(u'stop processes...', end='', flush=True)
                 gbl.set_quit()
     print(u'exit system.')
     return 0
